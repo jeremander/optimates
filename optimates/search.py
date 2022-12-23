@@ -1,3 +1,5 @@
+"""A generic API for solving discrete search problems."""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from math import exp, inf
@@ -49,6 +51,7 @@ class Solutions(Generic[T]):
                 self.solutions |= other.solutions
         return self
     def __len__(self) -> int:
+        """Gets the total number of stored solutions."""
         return len(self.solutions)
 
 class SearchProblem(ABC, Generic[T]):
@@ -117,6 +120,7 @@ class HillClimb(Search[T]):
     max_iters: Optional[int] = 1000
     verbosity: int = 0  # verbosity level
     def reset(self) -> None:
+        """Resets the state of the hill climb."""
         # maintain the set of best solutions
         self.solutions: Solutions[T] = Solutions.empty()
     def terminate_early(self) -> bool:
