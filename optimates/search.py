@@ -4,6 +4,8 @@ from math import exp, inf
 import random
 from typing import Generic, Iterable, List, Optional, Set, Tuple, TypeVar
 
+from optimates.utils import TopNHeap
+
 T = TypeVar('T')
 IterData = Tuple[T, float]  # node and score
 
@@ -89,8 +91,8 @@ class Search(ABC, Generic[T]):
     Starting from some initial state, it will attempt to find a global maximum, possibly using the neighborhood structure of ths earch problem."""
     problem: SearchProblem[T]
     @abstractmethod
-    def _search(self, initial: T) -> Solutions[T]:
-        """Override this method to perform the search from a given initial node.
+    def _search(self, node: T) -> Solutions[T]:
+        """Override this method to perform the search from a given node.
         This should return a Solutions object (set of best solutions, and their score)."""
     def search(self, initial: Optional[T] = None) -> Solutions[T]:
         """Performs the search, starting from an initial node.
@@ -169,8 +171,8 @@ class HillClimb(Search[T]):
             if (self.verbosity >= 3):
                 print(f'\t\tcurrent node = {cur_node}, score = {cur_score}')
         return (solns, pairs)
-    def _search(self, initial: T) -> Solutions[T]:
-        (solns, _) = self.iterate_search(initial)
+    def _search(self, node: T) -> Solutions[T]:
+        (solns, _) = self.iterate_search(node)
         return solns
 
 class ExhaustiveSearch(HillClimb):
@@ -247,3 +249,37 @@ class SimulatedAnnealing(HillClimb):
         return acc
     def terminate_early(self) -> bool:
         return False
+
+class ExhaustiveDFS(Search[T]):
+    """An exhaustive depth-first search.
+    This employs dynamic programming: starting from the initial node, recursively finds best solutions from each descendant node.
+    NOTE: this may fail to terminate if the search graph has cycles, and it will visit nodes repeatedly if the graph is not a tree."""
+    def _search(self, node: T) -> Solutions[T]:
+        score = self.problem.score(node)
+        if self.problem.is_solution(node):
+            solns = Solutions(score, {node})
+        else:
+            solns = Solutions.empty()
+        # compute solutions for each neighbor
+        for nbr in self.problem.get_neighbors(node):
+            solns.merge(self._search(nbr))
+        return solns
+
+class BeamSearch(Search[T]):
+    """A beam search."""
+    beam_width: int = 10
+    def _search(self, node: T) -> Solutions[T]:
+        score = self.problem.score(node)
+        if self.problem.is_solution(node):
+            solns = Solutions(score, {node})
+        else:
+            solns = Solutions.empty()
+        # compute heap of top-scoring neighbors (not just the best ones)
+        best_nbrs: TopNHeap[Tuple[float, T]] = TopNHeap(N = self.beam_width)
+        for nbr in self.problem.get_neighbors(node):
+            score = self.problem.score(nbr)
+            best_nbrs.push((score, nbr))
+        # for the top-scoring neighbors, compute their best solutions, then merge
+        for (_, nbr) in best_nbrs:
+            solns.merge(self._search(nbr))
+        return solns
