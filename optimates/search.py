@@ -64,6 +64,9 @@ class SearchProblem(ABC, Generic[T]):
     @abstractmethod
     def initial_elements(self) -> Iterable[T]:
         """Gets the set of initial elements of the search graph (i.e. the set of nodes with no predecessor)."""
+    def default_initial_element(self) -> T:
+        """Gets some "canonical default" initial element of the search graph."""
+        return next(iter(self.initial_elements()))
     @abstractmethod
     def is_solution(self, node: T) -> bool:
         """Returns True if a node is a solution."""
@@ -76,14 +79,17 @@ class SearchProblem(ABC, Generic[T]):
     @abstractmethod
     def get_neighbors(self, node: T) -> Iterable[T]:
         """Gets the neighbors of a node."""
+    def num_neighbors(self, node: T) -> int:
+        """Counts the number of neighbors of a node."""
+        ctr = 0
+        for _ in self.get_neighbors(node):
+            ctr += 1
+        return ctr
     @abstractmethod
     def random_neighbor(self, node: T) -> T:
         """Gets a random neighbor of a node.
         By default, this will be distributed uniformly over the neighbor set.
         If no neighbors exist, raises an EmptyNeighborSetError."""
-    def default_initial_element(self) -> T:
-        """Gets some "canonical default" initial element of the search graph."""
-        return next(iter(self.initial_elements()))
 
 @dataclass  # type: ignore
 class Search(ABC, Generic[T]):
