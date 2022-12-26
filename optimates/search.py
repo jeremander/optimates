@@ -61,9 +61,9 @@ class SearchProblem(ABC, Generic[T]):
     Each node has a score, and we wish to find a solution node with the maximum score.
     Furthermore, nodes may have directed edges to other "neighbor" nodes which are related in such a way that neighbor nodes are similar to each other in some way (hopefully in score as well).
     A variety of algorithms may be applied to try to search for an optimal solution in the search graph."""
-    @abstractmethod
     def score(self, node: T) -> float:
         """Scores a node of the search graph."""
+        raise NotImplementedError
     @abstractmethod
     def initial_elements(self) -> Iterable[T]:
         """Gets the set of initial elements of the search graph (i.e. the set of nodes with no predecessor)."""
@@ -93,6 +93,37 @@ class SearchProblem(ABC, Generic[T]):
         """Gets a random neighbor of a node.
         By default, this will be distributed uniformly over the neighbor set.
         If no neighbors exist, raises an EmptyNeighborSetError."""
+
+@dataclass  # type: ignore
+class FilteredSearchProblem(SearchProblem[T]):
+    """Class for a modified search problem where the search space is filtered by some predicate.
+    A subclass should override the `is_element` method."""
+    problem: SearchProblem[T]
+    @abstractmethod
+    def is_element(self, node: T) -> bool:
+        """This method checks whether a node is a valid element of the search problem."""
+    def score(self, node: T) -> float:
+        return self.problem.score(node)
+    def initial_elements(self) -> Iterable[T]:
+        return filter(self.is_element, self.problem.initial_elements())
+    def is_solution(self, node: T) -> bool:
+        return self.is_element(node) and self.problem.is_solution(node)
+    def iter_nodes(self) -> Iterable[T]:
+        # NOTE: this can be inefficient, so you should preferably override it
+        return filter(self.is_element, self.problem.iter_nodes())
+    def random_node(self) -> T:
+        # NOTE: this can be inefficient (or non-terminating), so you should preferably override it
+        while True:
+            node = self.problem.random_node()
+            if self.is_element(node):
+                return node
+    def get_neighbors(self, node: T) -> Iterable[T]:
+        return filter(self.is_element, self.problem.get_neighbors(node))
+    def random_neighbor(self, node: T) -> T:
+        while True:
+            nbr = self.problem.random_neighbor(node)
+            if self.is_element(nbr):
+                return nbr
 
 @dataclass  # type: ignore
 class Search(ABC, Generic[T]):
@@ -145,9 +176,9 @@ class HillClimb(Search[T]):
             solns.add(cur_node, cur_score)
         t = 1
         while (t <= max_iters):
-            if (self.verbosity >= 2):
+            if (self.verbosity >= 1):
                 print(f'\tIteration #{t}')
-                if (self.verbosity >= 3):
+                if (self.verbosity >= 2):
                     print(f'\t\tcurrent node = {cur_node}, score = {cur_score}')
             # store highest-scoring neighbors that are accepted
             local_solns: Solutions[T] = Solutions.empty()
@@ -178,7 +209,6 @@ class HillClimb(Search[T]):
         else:
             if (self.verbosity >= 1):
                 print(f'\tTerminating after max_iters ({max_iters}) iterations reached.')
-            if (self.verbosity >= 3):
                 print(f'\t\tcurrent node = {cur_node}, score = {cur_score}')
         return (solns, pairs)
     def _search(self, node: T) -> Solutions[T]:
@@ -210,13 +240,19 @@ class BlindRandomSearch(HillClimb):
     def accept(self, cur_score: float, nbr_score: float) -> bool:
         return True
 
+@dataclass
 class StochasticLocalSearch(HillClimb):
     """A stochastic local search randomly chooses a neighbor node at each step.
-    Accepts the neighbor if its score is strictly higher than that of the current node."""
+    Accepts the neighbor if its score is at least that of the current node.
+    If strict_improvement = True, requires that the score be strictly higher."""
+    strict_improvement: bool = False
     def get_neighbors(self, node: T) -> Iterable[T]:
         return [self.problem.random_neighbor(node)]
     def accept(self, cur_score: float, nbr_score: float) -> bool:
-        return nbr_score > cur_score
+        if self.strict_improvement:
+            return nbr_score > cur_score
+        else:
+            return nbr_score >= cur_score
     def terminate_early(self) -> bool:
         return False
 
