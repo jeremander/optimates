@@ -15,7 +15,7 @@ class RangeProblem(SearchProblem[int]):
     n: int
     def score(self, node: int) -> float:
         return float(node)
-    def initial_elements(self) -> Iterable[int]:
+    def initial_nodes(self) -> Iterable[int]:
         return [0]
     def is_solution(self, node: int) -> bool:
         return True
@@ -40,7 +40,7 @@ class ReverseRangeProblem(RangeProblem):
     """Trivial search space where i = {0, ..., n - 1} and score(i) = -i."""
     def score(self, node: int) -> float:
         return -float(node)
-    def initial_elements(self) -> Iterable[int]:
+    def initial_nodes(self) -> Iterable[int]:
         return [5]
 
 range_problem = RangeProblem(10)
@@ -79,7 +79,7 @@ TESTS = [
 def test_search(seed, search_obj, result):
     random.seed(seed)
     if isinstance(search_obj, HillClimb):
-        initial = search_obj.problem.default_initial_element()
+        initial = search_obj.problem.default_initial_node()
         (res, steps) = search_obj.iterate_search(initial)
         if ('num_steps' in result):
             assert (len(steps) == result['num_steps'])

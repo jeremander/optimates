@@ -8,6 +8,7 @@ from typing import Generic, Iterable, List, Optional, Set, Tuple, TypeVar
 
 from optimates.utils import TopNHeap
 
+
 T = TypeVar('T')
 IterData = Tuple[T, float]  # node and score
 
@@ -65,11 +66,11 @@ class SearchProblem(ABC, Generic[T]):
         """Scores a node of the search graph."""
         raise NotImplementedError
     @abstractmethod
-    def initial_elements(self) -> Iterable[T]:
-        """Gets the set of initial elements of the search graph (i.e. the set of nodes with no predecessor)."""
-    def default_initial_element(self) -> T:
-        """Gets some "canonical default" initial element of the search graph."""
-        return next(iter(self.initial_elements()))
+    def initial_nodes(self) -> Iterable[T]:
+        """Gets the set of initial nodes of the search graph (i.e. the set of nodes with no predecessor)."""
+    def default_initial_node(self) -> T:
+        """Gets some "canonical default" initial node of the search graph."""
+        return next(iter(self.initial_nodes()))
     @abstractmethod
     def is_solution(self, node: T) -> bool:
         """Returns True if a node is a solution."""
@@ -104,8 +105,8 @@ class FilteredSearchProblem(SearchProblem[T]):
         """This method checks whether a node is a valid element of the search problem."""
     def score(self, node: T) -> float:
         return self.problem.score(node)
-    def initial_elements(self) -> Iterable[T]:
-        return filter(self.is_element, self.problem.initial_elements())
+    def initial_nodes(self) -> Iterable[T]:
+        return filter(self.is_element, self.problem.initial_nodes())
     def is_solution(self, node: T) -> bool:
         return self.is_element(node) and self.problem.is_solution(node)
     def iter_nodes(self) -> Iterable[T]:
@@ -125,8 +126,13 @@ class FilteredSearchProblem(SearchProblem[T]):
             if self.is_element(nbr):
                 return nbr
 
+class _Search(ABC, Generic[T]):
+    @abstractmethod
+    def search(self, initial: Optional[T] = None) -> Solutions[T]:
+        """Performs the search, starting from an initial node."""
+
 @dataclass  # type: ignore
-class Search(ABC, Generic[T]):
+class Search(_Search[T]):
     """Base class for a search algorithm.
     Starting from some initial state, it will attempt to find a global maximum, possibly using the neighborhood structure of ths earch problem."""
     problem: SearchProblem[T]
@@ -138,8 +144,28 @@ class Search(ABC, Generic[T]):
         """Performs the search, starting from an initial node.
         If none is provided, uses the SearchProblem's default initial node."""
         if (initial is None):
-            initial = self.problem.default_initial_element()
+            initial = self.problem.default_initial_node()
         return self._search(initial)
+
+@dataclass  # type: ignore
+class SearchWithRestarts(_Search[T]):
+    search_: Search[T]
+    num_restarts: int = 25  # number of random restarts
+    random_restart: bool = True  # whether to use random restarts
+    verbosity: int = 0  # verbosity level
+    def __init__(self, search: Search[T], num_restarts: int = 25, random_restart: bool = True, verbosity: int = 0) -> None:
+        self.search_ = search
+        self.num_restarts = num_restarts
+        self.random_restart = random_restart
+        self.verbosity = verbosity
+    def search(self, initial: Optional[T] = None) -> Solutions[T]:
+        solutions: Solutions[T] = Solutions.empty()
+        for t in range(self.num_restarts):
+            if (self.verbosity >= 1):
+                print(f'RESTART #{t + 1}')
+            node = self.search_.problem.random_node() if self.random_restart else initial
+            solutions.merge(self.search_.search(node))
+        return solutions
 
 @dataclass  # type: ignore
 class HillClimb(Search[T]):

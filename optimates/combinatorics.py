@@ -8,6 +8,7 @@ from typing import Iterable, List, Tuple
 
 from optimates.search import EmptyNeighborSetError, SearchProblem
 
+
 Perm = Tuple[int, ...]
 
 def num_permutations(n: int, k: int) -> int:
@@ -29,7 +30,7 @@ class SubsetSearchProblem(SearchProblem[int]):
     A neighbor of a subset is considered to be any subset with "a bit flipped" (i.e. either one element was added or removed from the set)."""
     n: int
     initial: int = 0  # by default, start off empty
-    def initial_elements(self) -> Iterable[int]:
+    def initial_nodes(self) -> Iterable[int]:
         return [self.initial]
     def is_solution(self, node: int) -> bool:
         return True
@@ -53,7 +54,7 @@ class PermutationSearchProblem(SearchProblem[Perm]):
     If adjacent_only = True, only includes neighbors where the swap is adjacent (n - 1 total)."""
     n: int
     adjacent_only: bool = False
-    def initial_elements(self) -> Iterable[Perm]:
+    def initial_nodes(self) -> Iterable[Perm]:
         return [tuple(range(self.n))]
     def is_solution(self, node: Perm) -> bool:
         return True
@@ -89,10 +90,10 @@ class PermutationSearchProblem(SearchProblem[Perm]):
 @dataclass  # type: ignore
 class PermutedSubsequenceSearchProblem(SearchProblem[Perm]):
     """A search problem defined on permutations of subsequences of (0, 1, ..., n - 1).
-    Each element is a sequence (i_1, ..., i_k), where k = 0, ..., n, and each i_j is a distinct element in {0, 1, ..., n - 1}.
+    Each node is a sequence (i_1, ..., i_k), where k = 0, ..., n, and each i_j is a distinct element in {0, 1, ..., n - 1}.
     A neighbor of a permuted sequence is a sequence that swaps one element of the original sequence with another element of either the sequence or its complement, discards one element, or inserts one element."""
     n: int
-    def initial_elements(self) -> Iterable[Perm]:
+    def initial_nodes(self) -> Iterable[Perm]:
         return [()]
     def is_solution(self, node: Perm) -> bool:
         return True
