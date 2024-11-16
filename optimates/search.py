@@ -63,7 +63,7 @@ class Solutions(Generic[T]):
         return len(self.solutions)
 
 
-class SearchProblem(ABC, Generic[T]):
+class SearchProblem(Generic[T]):
     """Generic search problem.
     This can be viewed as a directed graph of elements (nodes) to search.
     A subset of the nodes are considered "solutions."
@@ -71,33 +71,33 @@ class SearchProblem(ABC, Generic[T]):
     Furthermore, nodes may have directed edges to other "neighbor" nodes which are related in such a way that neighbor nodes are similar to each other in some way (hopefully in score as well).
     A variety of algorithms may be applied to try to search for an optimal solution in the search graph."""
 
+    def is_solution(self, node: T) -> bool:
+        """Returns True if a node is a solution."""
+        raise NotImplementedError
+
+    def get_neighbors(self, node: T) -> Iterable[T]:
+        """Gets the neighbors of a node."""
+        raise NotImplementedError
+
     def score(self, node: T) -> float:
         """Scores a node of the search graph."""
         raise NotImplementedError
 
-    @abstractmethod
     def initial_nodes(self) -> Iterable[T]:
         """Gets the set of initial nodes of the search graph (i.e. the set of nodes with no predecessor)."""
+        raise NotImplementedError
 
     def default_initial_node(self) -> T:
         """Gets some "canonical default" initial node of the search graph."""
         return next(iter(self.initial_nodes()))
 
-    @abstractmethod
-    def is_solution(self, node: T) -> bool:
-        """Returns True if a node is a solution."""
-
-    @abstractmethod
     def iter_nodes(self) -> Iterable[T]:
         """Gets an iterable over all nodes in the search space."""
+        raise NotImplementedError
 
-    @abstractmethod
     def random_node(self) -> T:
         """Gets a random node in the search space."""
-
-    @abstractmethod
-    def get_neighbors(self, node: T) -> Iterable[T]:
-        """Gets the neighbors of a node."""
+        raise NotImplementedError
 
     def num_neighbors(self, node: T) -> int:
         """Counts the number of neighbors of a node."""
@@ -122,9 +122,9 @@ class FilteredSearchProblem(SearchProblem[T]):
     A subclass should override the `is_element` method."""
     problem: SearchProblem[T]
 
-    @abstractmethod
     def is_element(self, node: T) -> bool:
         """This method checks whether a node is a valid element of the search problem."""
+        raise NotImplementedError
 
     def score(self, node: T) -> float:
         return self.problem.score(node)
