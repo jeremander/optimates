@@ -1,16 +1,19 @@
 """A generic API for solving discrete search problems."""
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass
 from math import exp, inf
 import random
-from typing import Generic, Iterable, List, Optional, Set, Tuple, TypeVar
+from typing import Generic, Optional, TypeVar
 
 from optimates.utils import TopNHeap
 
 
 T = TypeVar('T')
-IterData = Tuple[T, float]  # node and score
+IterData = tuple[T, float]  # node and score
 
 
 ##########
@@ -29,31 +32,36 @@ class EmptyNeighborSetError(ValueError):
 class Solutions(Generic[T]):
     """Stores a set of best solutions to a search problem, and the maximum score."""
     score: Optional[float]
-    solutions: Set[T]
+    solutions: set[T]
+
     @classmethod
-    def empty(cls) -> 'Solutions[T]':
+    def empty(cls) -> Solutions[T]:
         """Constructs an empty set of solutions."""
         return Solutions(None, set())
+
     def add(self, solution: T, score: float) -> None:
         """Adds a new solution to the set, along with its score."""
         if (self.score is None) or (score > self.score):
             self.score = score
             self.solutions = {solution}
-        elif (score == self.score):
+        elif score == self.score:
             self.solutions.add(solution)
-    def merge(self, other: 'Solutions[T]') -> 'Solutions[T]':
+
+    def merge(self, other: Solutions[T]) -> Solutions[T]:
         """Merges another Solutions set into this one (in-place)."""
         assert isinstance(other, Solutions)
-        if (other.score is not None):
+        if other.score is not None:
             if (self.score is None) or (other.score > self.score):
                 self.score = other.score
                 self.solutions = other.solutions
-            elif (other.score == self.score):
+            elif other.score == self.score:
                 self.solutions |= other.solutions
         return self
+
     def __len__(self) -> int:
         """Gets the total number of stored solutions."""
         return len(self.solutions)
+
 
 class SearchProblem(ABC, Generic[T]):
     """Generic search problem.
@@ -62,102 +70,130 @@ class SearchProblem(ABC, Generic[T]):
     Each node has a score, and we wish to find a solution node with the maximum score.
     Furthermore, nodes may have directed edges to other "neighbor" nodes which are related in such a way that neighbor nodes are similar to each other in some way (hopefully in score as well).
     A variety of algorithms may be applied to try to search for an optimal solution in the search graph."""
+
     def score(self, node: T) -> float:
         """Scores a node of the search graph."""
         raise NotImplementedError
+
     @abstractmethod
     def initial_nodes(self) -> Iterable[T]:
         """Gets the set of initial nodes of the search graph (i.e. the set of nodes with no predecessor)."""
+
     def default_initial_node(self) -> T:
         """Gets some "canonical default" initial node of the search graph."""
         return next(iter(self.initial_nodes()))
+
     @abstractmethod
     def is_solution(self, node: T) -> bool:
         """Returns True if a node is a solution."""
+
     @abstractmethod
     def iter_nodes(self) -> Iterable[T]:
         """Gets an iterable over all nodes in the search space."""
+
     @abstractmethod
     def random_node(self) -> T:
         """Gets a random node in the search space."""
+
     @abstractmethod
     def get_neighbors(self, node: T) -> Iterable[T]:
         """Gets the neighbors of a node."""
+
     def num_neighbors(self, node: T) -> int:
         """Counts the number of neighbors of a node."""
         ctr = 0
         for _ in self.get_neighbors(node):
             ctr += 1
         return ctr
+
     @abstractmethod
     def random_neighbor(self, node: T) -> T:
         """Gets a random neighbor of a node.
         By default, this will be distributed uniformly over the neighbor set.
         If no neighbors exist, raises an EmptyNeighborSetError."""
 
-@dataclass  # type: ignore
+
+@dataclass
 class FilteredSearchProblem(SearchProblem[T]):
     """Class for a modified search problem where the search space is filtered by some predicate.
     A subclass should override the `is_element` method."""
     problem: SearchProblem[T]
+
     @abstractmethod
     def is_element(self, node: T) -> bool:
         """This method checks whether a node is a valid element of the search problem."""
+
     def score(self, node: T) -> float:
         return self.problem.score(node)
+
     def initial_nodes(self) -> Iterable[T]:
         return filter(self.is_element, self.problem.initial_nodes())
+
     def is_solution(self, node: T) -> bool:
         return self.is_element(node) and self.problem.is_solution(node)
+
     def iter_nodes(self) -> Iterable[T]:
         # NOTE: this can be inefficient, so you should preferably override it
         return filter(self.is_element, self.problem.iter_nodes())
+
     def random_node(self) -> T:
         # NOTE: this can be inefficient (or non-terminating), so you should preferably override it
         while True:
             node = self.problem.random_node()
             if self.is_element(node):
                 return node
+
     def get_neighbors(self, node: T) -> Iterable[T]:
         return filter(self.is_element, self.problem.get_neighbors(node))
+
     def random_neighbor(self, node: T) -> T:
         while True:
             nbr = self.problem.random_neighbor(node)
             if self.is_element(nbr):
                 return nbr
 
+
 class _Search(ABC, Generic[T]):
+
     @abstractmethod
     def search(self, initial: Optional[T] = None) -> Solutions[T]:
         """Performs the search, starting from an initial node."""
 
-@dataclass  # type: ignore
+
+@dataclass
 class Search(_Search[T]):
     """Base class for a search algorithm.
     Starting from some initial state, it will attempt to find a global maximum, possibly using the neighborhood structure of ths earch problem."""
     problem: SearchProblem[T]
+
     @abstractmethod
     def _search(self, node: T) -> Solutions[T]:
         """Override this method to perform the search from a given node.
         This should return a Solutions object (set of best solutions, and their score)."""
+
     def search(self, initial: Optional[T] = None) -> Solutions[T]:
         """Performs the search, starting from an initial node.
         If none is provided, uses the SearchProblem's default initial node."""
-        if (initial is None):
+        if initial is None:
             initial = self.problem.default_initial_node()
         return self._search(initial)
 
-@dataclass  # type: ignore
+
+@dataclass
 class SearchWithRestarts(_Search[T]):
+    """Wraps another search problem.
+    Runs that search multiple times, taking the best solution over all iterations."""
     search_: Search[T]
     num_restarts: int = 25  # number of random restarts
     random_restart: bool = True  # whether to use random restarts
     verbosity: int = 0  # verbosity level
+
     def __init__(self, search: Search[T], num_restarts: int = 25, random_restart: bool = True, verbosity: int = 0) -> None:
         self.search_ = search
         self.num_restarts = num_restarts
         self.random_restart = random_restart
         self.verbosity = verbosity
+
     def search(self, initial: Optional[T] = None) -> Solutions[T]:
         solutions: Solutions[T] = Solutions.empty()
         for t in range(self.num_restarts):
@@ -167,7 +203,8 @@ class SearchWithRestarts(_Search[T]):
             solutions.merge(self.search_.search(node))
         return solutions
 
-@dataclass  # type: ignore
+
+@dataclass
 class HillClimb(Search[T]):
     """A general framework for discrete optimization which captures many well-known algorithms.
     Starting from the initial node, this will generate neighbors in some way, scoring each of them.
@@ -176,21 +213,26 @@ class HillClimb(Search[T]):
     Proceeds in this way until a stopping criterion is met (e.g. max number of iterations reached, no neighbors were accepted, etc.)."""
     max_iters: Optional[int] = 1000
     verbosity: int = 0  # verbosity level
+
     def reset(self) -> None:
         """Resets the state of the hill climb."""
         # maintain the set of best solutions
         self.solutions: Solutions[T] = Solutions.empty()
+
     def terminate_early(self) -> bool:
         """Returns True if the algorithm should terminate when no acceptable neighbors are found."""
         return True
+
     def get_neighbors(self, node: T) -> Iterable[T]:
         """Gets the set of neighbors for a node.
         By default, it will simply get the neighborhood from the underlying problem, but the search algorithm is free to modify this in some way."""
         return self.problem.get_neighbors(node)
+
     @abstractmethod
     def accept(self, cur_score: float, nbr_score: float) -> bool:
         """Given the current node's score and a neighbor node's score, returns True if the neighbor is accepted."""
-    def iterate_search(self, initial: T) -> Tuple[Solutions[T], List[IterData[T]]]:
+
+    def iterate_search(self, initial: T) -> tuple[Solutions[T], list[IterData[T]]]:
         """Runs the optimization, returning a pair (best solutions, node sequence)."""
         self.reset()
         prob, solns = self.problem, self.solutions
@@ -201,8 +243,8 @@ class HillClimb(Search[T]):
         if prob.is_solution(cur_node):
             solns.add(cur_node, cur_score)
         t = 1
-        while (t <= max_iters):
-            if (self.verbosity >= 1):
+        while t <= max_iters:
+            if self.verbosity >= 1:
                 print(f'\tIteration #{t}')
                 if (self.verbosity >= 2):
                     print(f'\t\tcurrent node = {cur_node}, score = {cur_score}')
@@ -218,11 +260,11 @@ class HillClimb(Search[T]):
                     num_accepted += 1
                     local_solns.add(nbr, nbr_score)
             num_best_accepted = len(local_solns)
-            if (self.verbosity >= 3):
+            if self.verbosity >= 3:
                 print(f'\t\tnum_neighbors = {num_nbrs}, num_accepted = {num_accepted}, num_best accepted = {num_best_accepted}')
-            if (num_best_accepted == 0):
+            if num_best_accepted == 0:
                 if self.terminate_early():
-                    if (self.verbosity >= 1):
+                    if self.verbosity >= 1:
                         print(f'\tNo neighbors accepted: terminating at iteration #{t}.')
                     break
                 # otherwise, remain at the current node
@@ -233,38 +275,47 @@ class HillClimb(Search[T]):
             pairs.append((cur_node, cur_score))
             t += 1
         else:
-            if (self.verbosity >= 1):
+            if self.verbosity >= 1:
                 print(f'\tTerminating after max_iters ({max_iters}) iterations reached.')
                 print(f'\t\tcurrent node = {cur_node}, score = {cur_score}')
         return (solns, pairs)
+
     def _search(self, node: T) -> Solutions[T]:
         (solns, _) = self.iterate_search(node)
         return solns
 
+
 class ExhaustiveSearch(HillClimb):
     """An exhaustive search checks every node in the search space."""
+
     def reset(self) -> None:
         super().reset()
         # create a generator over all nodes in the search space
         self._node_gen = iter(self.problem.iter_nodes())
+
     def get_neighbors(self, node: T) -> Iterable[T]:
         # retrieve the next node from the stored generator
         while True:
             try:
                 nbr = next(self._node_gen)
-                if (nbr != node):
+                if nbr != node:
                     return [nbr]
             except StopIteration:
                 return []
+
     def accept(self, cur_score: float, nbr_score: float) -> bool:
         return True
 
+
 class BlindRandomSearch(HillClimb):
     """A blind random search randomly chooses a new node to search at each step."""
+
     def get_neighbors(self, node: T) -> Iterable[T]:
         return [self.problem.random_node()]
+
     def accept(self, cur_score: float, nbr_score: float) -> bool:
         return True
+
 
 @dataclass
 class StochasticLocalSearch(HillClimb):
@@ -272,60 +323,72 @@ class StochasticLocalSearch(HillClimb):
     Accepts the neighbor if its score is at least that of the current node.
     If strict_improvement = True, requires that the score be strictly higher."""
     strict_improvement: bool = False
+
     def get_neighbors(self, node: T) -> Iterable[T]:
         return [self.problem.random_neighbor(node)]
+
     def accept(self, cur_score: float, nbr_score: float) -> bool:
         if self.strict_improvement:
             return nbr_score > cur_score
-        else:
-            return nbr_score >= cur_score
+        return nbr_score >= cur_score
+
     def terminate_early(self) -> bool:
         return False
+
 
 class GreedyLocalSearch(HillClimb):
     """A greedy local search selects the best-scoring neighbor from among the set of neighbors.
     If there is a tie, chooses one at random."""
+
     def accept(self, cur_score: float, nbr_score: float) -> bool:
         return nbr_score > cur_score
+
 
 class SimulatedAnnealing(HillClimb):
     """Simulated annealing attempts to find a global maximum by starting off in a more stochastic phase, allowing balances starts at a temperature T0, then gradually cools off the temperature via some exponential decay schedule."""
     T0: float = 1.0  # initial temperature
     decay: float = 0.99  # exponential decay coefficient (higher means mo
+
     def __post_init__(self) -> None:
-        assert (self.decay > 0.0) and (self.decay < 1.0), 'temperature decay coefficient must be in (0, 1)'
+        assert (self.decay > 0.0) and (self.decay < 1.0), 'temperature decay coefficient must be in (0, 1)'  # noqa: PT018
+
     def reset(self) -> None:
         super().reset()
         self.T = self.T0
+
     def get_neighbors(self, node: T) -> Iterable[T]:
         return [self.problem.random_neighbor(node)]
+
     def accept(self, cur_score: float, nbr_score: float) -> bool:
         delta = nbr_score - cur_score
-        if (self.verbosity >= 3):
+        if self.verbosity >= 3:
             print(f'\t\tcurrent temperature = {self.T}')
             print(f'\t\tneighbor score = {nbr_score}, delta = {delta}')
-        if (delta > 0):  # accept any improvement
+        if delta > 0:  # accept any improvement
             acc = True
             if (self.verbosity >= 3):
                 print('\t\tscore increased')
         else:  # accept a worse solution with some probability (likelier with high temperature)
             p = exp(delta / self.T)
             acc = random.random() < p
-            if (self.verbosity >= 3):
+            if self.verbosity >= 3:
                 print('\t\tscore decreased')
                 print(f'\t\tacceptance probability = {p}')
-        if (self.verbosity >= 3):
+        if self.verbosity >= 3:
             print('\t\t' + ('accepted' if acc else 'rejected') + ' neighbor')
         # decay the temperature
         self.T *= self.decay
         return acc
+
     def terminate_early(self) -> bool:
         return False
+
 
 class ExhaustiveDFS(Search[T]):
     """An exhaustive depth-first search.
     This employs dynamic programming: starting from the initial node, recursively finds best solutions from each descendant node.
     NOTE: this may fail to terminate if the search graph has cycles, and it will visit nodes repeatedly if the graph is not a tree."""
+
     def _search(self, node: T) -> Solutions[T]:
         score = self.problem.score(node)
         if self.problem.is_solution(node):
@@ -337,9 +400,11 @@ class ExhaustiveDFS(Search[T]):
             solns.merge(self._search(nbr))
         return solns
 
+
 class BeamSearch(Search[T]):
     """A beam search."""
     beam_width: int = 10
+
     def _search(self, node: T) -> Solutions[T]:
         score = self.problem.score(node)
         if self.problem.is_solution(node):
@@ -347,7 +412,7 @@ class BeamSearch(Search[T]):
         else:
             solns = Solutions.empty()
         # compute heap of top-scoring neighbors (not just the best ones)
-        best_nbrs: TopNHeap[Tuple[float, T]] = TopNHeap(N = self.beam_width)
+        best_nbrs: TopNHeap[tuple[float, T]] = TopNHeap(N = self.beam_width)
         for nbr in self.problem.get_neighbors(node):
             score = self.problem.score(nbr)
             best_nbrs.push((score, nbr))
