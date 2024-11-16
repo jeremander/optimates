@@ -17,6 +17,12 @@ classifiers = [
   "Programming Language :: Python"
 ]
 
+[project.urls]
+# Documentation = ""
+Issues = "https://github.com/jeremander/optimates/issues"
+Source = "https://github.com/jeremander/optimates"
+# Changelog = ""
+
 [tool.commitizen]
 tag_format = "v$major.$minor.$patch"
 
