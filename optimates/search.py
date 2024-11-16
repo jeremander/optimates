@@ -106,11 +106,14 @@ class SearchProblem(ABC, Generic[T]):
             ctr += 1
         return ctr
 
-    @abstractmethod
     def random_neighbor(self, node: T) -> T:
         """Gets a random neighbor of a node.
         By default, this will be distributed uniformly over the neighbor set.
         If no neighbors exist, raises an EmptyNeighborSetError."""
+        nbrs = list(self.get_neighbors(node))
+        if nbrs:
+            return random.choice(nbrs)
+        raise EmptyNeighborSetError(f'{node} has no neighbors')
 
 
 @dataclass
@@ -258,7 +261,7 @@ class HillClimb(Search[T]):
             else:
                 # choose randomly from the set of best accepted solutions
                 cur_node = random.choice(list(local_solns.solutions))
-                cur_score = local_solns.score  # type: ignore
+                cur_score = local_solns.score  # type: ignore[assignment]
             pairs.append((cur_node, cur_score))
             t += 1
         else:
@@ -306,7 +309,7 @@ class BlindRandomSearch(HillClimb[T]):
 @dataclass
 class StochasticLocalSearch(HillClimb[T]):
     """A stochastic local search randomly chooses a neighbor node at each step.
-    Accepts the neighbor if its score is at least that of the current node.
+    A neighbor is accepted if its score is at least that of the current node.
     If strict_improvement = True, requires that the score be strictly higher."""
     strict_improvement: bool = False
 
@@ -394,7 +397,7 @@ class BeamSearch(Search[T]):
         else:
             solns = Solutions.empty()
         # compute heap of top-scoring neighbors (not just the best ones)
-        best_nbrs: TopNHeap[tuple[float, T]] = TopNHeap(N = self.beam_width)
+        best_nbrs: TopNHeap[tuple[float, T]] = TopNHeap(N=self.beam_width)
         for nbr in self.problem.get_neighbors(node):
             score = self.problem.score(nbr)
             best_nbrs.push((score, nbr))
