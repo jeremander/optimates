@@ -156,7 +156,7 @@ class FilteredSearchProblem(SearchProblem[T]):
 class _Search(ABC, Generic[T]):
 
     @abstractmethod
-    def search(self, initial: Optional[T] = None) -> Solutions[T]:
+    def run(self, initial: Optional[T] = None) -> Solutions[T]:
         """Performs the search, starting from an initial node."""
 
 
@@ -167,37 +167,32 @@ class Search(_Search[T]):
     problem: SearchProblem[T]
 
     @abstractmethod
-    def _search(self, node: T) -> Solutions[T]:
+    def _run(self, node: T) -> Solutions[T]:
         """Override this method to perform the search from a given node.
-        This should return a Solutions object (set of best solutions, and their score)."""
+        This should return a Solutions object containing a set of best solutions and their score."""
 
-    def search(self, initial: Optional[T] = None) -> Solutions[T]:
+    def run(self, initial: Optional[T] = None) -> Solutions[T]:
         """Performs the search, starting from an initial node.
         If none is provided, uses the SearchProblem's default initial node."""
         if initial is None:
             initial = self.problem.default_initial_node()
-        return self._search(initial)
+        return self._run(initial)
 
 
 @dataclass
 class SearchWithRestarts(_Search[T]):
     """Wraps another search problem.
     Runs that search multiple times, taking the best solution over all iterations."""
-    search_: Search[T]
+    search: Search[T]
     num_restarts: int = 25  # number of random restarts
     random_restart: bool = True  # whether to use random restarts
 
-    def __init__(self, search: Search[T], num_restarts: int = 25, random_restart: bool = True) -> None:
-        self.search_ = search
-        self.num_restarts = num_restarts
-        self.random_restart = random_restart
-
-    def search(self, initial: Optional[T] = None) -> Solutions[T]:
+    def run(self, initial: Optional[T] = None) -> Solutions[T]:
         solutions: Solutions[T] = Solutions.empty()
         for t in range(self.num_restarts):
             logger.verbose(f'RESTART #{t + 1}', 1)
-            node = self.search_.problem.random_node() if self.random_restart else initial
-            solutions.merge(self.search_.search(node))
+            node = self.search.problem.random_node() if self.random_restart else initial
+            solutions.merge(self.search.run(node))
         return solutions
 
 
@@ -271,7 +266,7 @@ class HillClimb(Search[T]):
             logger.verbose(f'\t\tcurrent node = {cur_node}, score = {cur_score}', 1)
         return (solns, pairs)
 
-    def _search(self, node: T) -> Solutions[T]:
+    def _run(self, node: T) -> Solutions[T]:
         (solns, _) = self.iterate_search(node)
         return solns
 
@@ -376,7 +371,7 @@ class ExhaustiveDFS(Search[T]):
     This employs dynamic programming: starting from the initial node, recursively finds best solutions from each descendant node.
     NOTE: this may fail to terminate if the search graph has cycles, and it will visit nodes repeatedly if the graph is not a tree."""
 
-    def _search(self, node: T) -> Solutions[T]:
+    def _run(self, node: T) -> Solutions[T]:
         score = self.problem.score(node)
         if self.problem.is_solution(node):
             solns = Solutions(score, {node})
@@ -384,7 +379,7 @@ class ExhaustiveDFS(Search[T]):
             solns = Solutions.empty()
         # compute solutions for each neighbor
         for nbr in self.problem.get_neighbors(node):
-            solns.merge(self._search(nbr))
+            solns.merge(self._run(nbr))
         return solns
 
 
@@ -392,7 +387,7 @@ class BeamSearch(Search[T]):
     """A beam search."""
     beam_width: int = 10
 
-    def _search(self, node: T) -> Solutions[T]:
+    def _run(self, node: T) -> Solutions[T]:
         score = self.problem.score(node)
         if self.problem.is_solution(node):
             solns = Solutions(score, {node})
@@ -405,5 +400,5 @@ class BeamSearch(Search[T]):
             best_nbrs.push((score, nbr))
         # for the top-scoring neighbors, compute their best solutions, then merge
         for (_, nbr) in best_nbrs:
-            solns.merge(self._search(nbr))
+            solns.merge(self._run(nbr))
         return solns
