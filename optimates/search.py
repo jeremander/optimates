@@ -285,7 +285,7 @@ class HillClimb(Search[T]):
         return solns
 
 
-class ExhaustiveSearch(HillClimb):
+class ExhaustiveSearch(HillClimb[T]):
     """An exhaustive search checks every node in the search space."""
 
     def reset(self) -> None:
@@ -307,7 +307,7 @@ class ExhaustiveSearch(HillClimb):
         return True
 
 
-class BlindRandomSearch(HillClimb):
+class BlindRandomSearch(HillClimb[T]):
     """A blind random search randomly chooses a new node to search at each step."""
 
     def get_neighbors(self, node: T) -> Iterable[T]:
@@ -318,7 +318,7 @@ class BlindRandomSearch(HillClimb):
 
 
 @dataclass
-class StochasticLocalSearch(HillClimb):
+class StochasticLocalSearch(HillClimb[T]):
     """A stochastic local search randomly chooses a neighbor node at each step.
     Accepts the neighbor if its score is at least that of the current node.
     If strict_improvement = True, requires that the score be strictly higher."""
@@ -336,7 +336,7 @@ class StochasticLocalSearch(HillClimb):
         return False
 
 
-class GreedyLocalSearch(HillClimb):
+class GreedyLocalSearch(HillClimb[T]):
     """A greedy local search selects the best-scoring neighbor from among the set of neighbors.
     If there is a tie, chooses one at random."""
 
@@ -344,7 +344,7 @@ class GreedyLocalSearch(HillClimb):
         return nbr_score > cur_score
 
 
-class SimulatedAnnealing(HillClimb):
+class SimulatedAnnealing(HillClimb[T]):
     """Simulated annealing attempts to find a global maximum by starting off in a more stochastic phase, allowing balances starts at a temperature T0, then gradually cools off the temperature via some exponential decay schedule."""
     T0: float = 1.0  # initial temperature
     decay: float = 0.99  # exponential decay coefficient (higher means mo

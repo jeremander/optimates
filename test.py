@@ -13,35 +13,46 @@ from optimates.search import BlindRandomSearch, EmptyNeighborSetError, Exhaustiv
 class RangeProblem(SearchProblem[int]):
     """Trivial search space where i = {0, ..., n - 1} and score(i) = i."""
     n: int
+
     def score(self, node: int) -> float:
         return float(node)
+
     def initial_nodes(self) -> Iterable[int]:
         return [0]
+
     def is_solution(self, node: int) -> bool:
         return True
+
     def iter_nodes(self) -> Iterable[int]:
         return range(self.n)
+
     def random_node(self) -> int:
         return random.choice(range(self.n))
+
     def get_neighbors(self, node: int) -> Iterable[int]:
         nbrs = []
-        if (node > 0):
+        if node > 0:
             nbrs.append(node - 1)
-        if (node < self.n - 1):
+        if node < self.n - 1:
             nbrs.append(node + 1)
         return nbrs
+
     def random_neighbor(self, node: int) -> int:
         nbrs = self.get_neighbors(node)
         if nbrs:
             return random.choice(list(nbrs))
         raise EmptyNeighborSetError()
 
+
 class ReverseRangeProblem(RangeProblem):
     """Trivial search space where i = {0, ..., n - 1} and score(i) = -i."""
+
     def score(self, node: int) -> float:
         return -float(node)
+
     def initial_nodes(self) -> Iterable[int]:
         return [5]
+
 
 range_problem = RangeProblem(10)
 rev_range_problem = ReverseRangeProblem(10)
@@ -77,13 +88,14 @@ TESTS = [
 
 @pytest.mark.parametrize(['seed', 'search_obj', 'result'], TESTS)
 def test_search(seed, search_obj, result):
+    """Tests the expected result for various search problems."""
     random.seed(seed)
     if isinstance(search_obj, HillClimb):
         initial = search_obj.problem.default_initial_node()
         (res, steps) = search_obj.iterate_search(initial)
-        if ('num_steps' in result):
+        if 'num_steps' in result:
             assert (len(steps) == result['num_steps'])
-        if ('monotonic' in result):  # check monotonicity
+        if 'monotonic' in result:  # check monotonicity
             monotonic = result['monotonic']
             is_mon = True
             for i in range(len(steps) - 1):
@@ -93,5 +105,5 @@ def test_search(seed, search_obj, result):
                     is_mon &= (steps[i][1] <= steps[i + 1][1])
             # if expecting not monotonic, the sequence must be non-monotonic
             assert monotonic or (not is_mon)
-    assert (result['score'] == res.score)
-    assert (result['solutions'] == res.solutions)
+    assert result['score'] == res.score
+    assert result['solutions'] == res.solutions

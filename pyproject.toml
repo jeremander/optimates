@@ -1,14 +1,31 @@
-[tool.poetry]
-name = "optimates"
-version = "0.1.0"
-description = "A library for discrete optimization and search."
-authors = ["Jeremy Silver <jeremys@nessiness.com>"]
-readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.8"
-
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "optimates"
+dynamic = ["version"]
+description = "A library for discrete optimization and search."
+authors = [
+    { name = "Jeremy Silver", email = "jeremys@nessiness.com" }
+]
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = ["optimization", "optimisation", "search"]
+classifiers = [
+  "Programming Language :: Python"
+]
+
+[tool.commitizen]
+tag_format = "v$major.$minor.$patch"
+
+[tool.mypy]
+exclude = ["old/", "tmp.*"]
+warn_unused_configs = true
+strict = true
+
+[[tool.mypy.overrides]]
+module = "test"
+strict = false
+disable_error_code = ["no-untyped-call", "no-untyped-def"]
