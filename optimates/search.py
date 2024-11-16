@@ -9,7 +9,7 @@ from math import exp, inf
 import random
 from typing import Generic, Optional, TypeVar
 
-from optimates.utils import TopNHeap
+from optimates.utils import TopNHeap, logger
 
 
 T = TypeVar('T')
@@ -186,19 +186,16 @@ class SearchWithRestarts(_Search[T]):
     search_: Search[T]
     num_restarts: int = 25  # number of random restarts
     random_restart: bool = True  # whether to use random restarts
-    verbosity: int = 0  # verbosity level
 
-    def __init__(self, search: Search[T], num_restarts: int = 25, random_restart: bool = True, verbosity: int = 0) -> None:
+    def __init__(self, search: Search[T], num_restarts: int = 25, random_restart: bool = True) -> None:
         self.search_ = search
         self.num_restarts = num_restarts
         self.random_restart = random_restart
-        self.verbosity = verbosity
 
     def search(self, initial: Optional[T] = None) -> Solutions[T]:
         solutions: Solutions[T] = Solutions.empty()
         for t in range(self.num_restarts):
-            if (self.verbosity >= 1):
-                print(f'RESTART #{t + 1}')
+            logger.verbose(f'RESTART #{t + 1}', 1)
             node = self.search_.problem.random_node() if self.random_restart else initial
             solutions.merge(self.search_.search(node))
         return solutions
@@ -211,8 +208,7 @@ class HillClimb(Search[T]):
     Once they are scored, an acceptance criterion is applied to determine an accepted subset.
     If this subset is empty, remains at the current node; otherwise, transitions to one of the highest-scoring accepted nodes at random.
     Proceeds in this way until a stopping criterion is met (e.g. max number of iterations reached, no neighbors were accepted, etc.)."""
-    max_iters: Optional[int] = 1000
-    verbosity: int = 0  # verbosity level
+    max_iters: Optional[int] = None
 
     def reset(self) -> None:
         """Resets the state of the hill climb."""
@@ -244,10 +240,8 @@ class HillClimb(Search[T]):
             solns.add(cur_node, cur_score)
         t = 1
         while t <= max_iters:
-            if self.verbosity >= 1:
-                print(f'\tIteration #{t}')
-                if (self.verbosity >= 2):
-                    print(f'\t\tcurrent node = {cur_node}, score = {cur_score}')
+            logger.verbose(f'\tIteration #{t}', 1)
+            logger.verbose(f'\t\tcurrent node = {cur_node}, score = {cur_score}', 2)
             # store highest-scoring neighbors that are accepted
             local_solns: Solutions[T] = Solutions.empty()
             num_nbrs, num_accepted = 0, 0
@@ -260,12 +254,10 @@ class HillClimb(Search[T]):
                     num_accepted += 1
                     local_solns.add(nbr, nbr_score)
             num_best_accepted = len(local_solns)
-            if self.verbosity >= 3:
-                print(f'\t\tnum_neighbors = {num_nbrs}, num_accepted = {num_accepted}, num_best accepted = {num_best_accepted}')
+            logger.verbose(f'\t\tnum_neighbors = {num_nbrs}, num_accepted = {num_accepted}, num_best accepted = {num_best_accepted}', 3)
             if num_best_accepted == 0:
                 if self.terminate_early():
-                    if self.verbosity >= 1:
-                        print(f'\tNo neighbors accepted: terminating at iteration #{t}.')
+                    logger.verbose(f'\tNo neighbors accepted: terminating at iteration #{t}.', 1)
                     break
                 # otherwise, remain at the current node
             else:
@@ -275,9 +267,8 @@ class HillClimb(Search[T]):
             pairs.append((cur_node, cur_score))
             t += 1
         else:
-            if self.verbosity >= 1:
-                print(f'\tTerminating after max_iters ({max_iters}) iterations reached.')
-                print(f'\t\tcurrent node = {cur_node}, score = {cur_score}')
+            logger.verbose(f'\tTerminating after max_iters ({max_iters}) iterations reached.', 1)
+            logger.verbose(f'\t\tcurrent node = {cur_node}, score = {cur_score}', 1)
         return (solns, pairs)
 
     def _search(self, node: T) -> Solutions[T]:
@@ -361,21 +352,17 @@ class SimulatedAnnealing(HillClimb[T]):
 
     def accept(self, cur_score: float, nbr_score: float) -> bool:
         delta = nbr_score - cur_score
-        if self.verbosity >= 3:
-            print(f'\t\tcurrent temperature = {self.T}')
-            print(f'\t\tneighbor score = {nbr_score}, delta = {delta}')
+        logger.verbose(f'\t\tcurrent temperature = {self.T}', 3)
+        logger.verbose(f'\t\tneighbor score = {nbr_score}, delta = {delta}', 3)
         if delta > 0:  # accept any improvement
             acc = True
-            if (self.verbosity >= 3):
-                print('\t\tscore increased')
+            logger.verbose('\t\tscore increased', 2)
         else:  # accept a worse solution with some probability (likelier with high temperature)
             p = exp(delta / self.T)
             acc = random.random() < p
-            if self.verbosity >= 3:
-                print('\t\tscore decreased')
-                print(f'\t\tacceptance probability = {p}')
-        if self.verbosity >= 3:
-            print('\t\t' + ('accepted' if acc else 'rejected') + ' neighbor')
+            logger.verbose('\t\tscore decreased', 3)
+            logger.verbose(f'\t\tacceptance probability = {p}', 3)
+        logger.verbose('\t\t' + ('accepted' if acc else 'rejected') + ' neighbor', 3)
         # decay the temperature
         self.T *= self.decay
         return acc
