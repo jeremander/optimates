@@ -102,5 +102,5 @@ disable_error_code = ["no-untyped-call", "no-untyped-def"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "--verbose"
+addopts = "--verbose --cov"
 testpaths = ["test.py"]
