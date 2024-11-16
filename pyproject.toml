@@ -85,3 +85,8 @@ strict = true
 module = "test"
 strict = false
 disable_error_code = ["no-untyped-call", "no-untyped-def"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--verbose"
+testpaths = ["test.py"]
